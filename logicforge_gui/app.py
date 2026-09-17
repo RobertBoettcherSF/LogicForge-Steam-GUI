@@ -129,6 +129,10 @@ class ShellApp(tk.Tk):
         eid = self._items[sel[0]]["id"]
         self.preview_var.set(t(instruction_key(eid)))
 
+    def _on_close(self) -> None:
+        steam.shutdown()
+        self.destroy()
+
     def on_play(self) -> None:
         if self._busy:
             return
