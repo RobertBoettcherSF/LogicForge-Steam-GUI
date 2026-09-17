@@ -1,4 +1,4 @@
-"""v0.1 Tk shell: list Logic Forge cores and launch make play."""
+"""Tk / CLI shell: list Logic Forge cores and launch make play (JSON i18n)."""
 from __future__ import annotations
 
 import json
@@ -8,6 +8,14 @@ import threading
 import tkinter as tk
 from pathlib import Path
 from tkinter import messagebox, ttk
+
+from logicforge_gui.i18n import (
+    available_locales,
+    get_locale,
+    instruction_key,
+    set_locale,
+    t,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 CATALOG = ROOT / "data" / "exercises.json"
@@ -29,8 +37,8 @@ def load_catalog() -> list[dict]:
 class ShellApp(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
-        self.title("Logic Forge — Exercise Shell v0.1")
-        self.geometry("720x480")
+        self.title(t("shell.title"))
+        self.geometry("720x520")
         self._busy = False
 
         top = ttk.Frame(self, padding=8)
@@ -38,10 +46,21 @@ class ShellApp(tk.Tk):
         self.root_var = tk.StringVar(
             value=str(exercises_root() or "(set LOGICFORGE_EXERCISES_ROOT)")
         )
-        ttk.Label(top, text="Cores root:").pack(side=tk.LEFT)
-        ttk.Entry(top, textvariable=self.root_var, width=70).pack(
+        ttk.Label(top, text=t("shell.cores_root")).pack(side=tk.LEFT)
+        ttk.Entry(top, textvariable=self.root_var, width=56).pack(
             side=tk.LEFT, fill=tk.X, expand=True, padx=4
         )
+        ttk.Label(top, text=t("shell.locale")).pack(side=tk.LEFT, padx=(8, 0))
+        self.locale_var = tk.StringVar(value=get_locale())
+        loc = ttk.Combobox(
+            top,
+            textvariable=self.locale_var,
+            values=available_locales() or ["en"],
+            width=6,
+            state="readonly",
+        )
+        loc.pack(side=tk.LEFT)
+        loc.bind("<<ComboboxSelected>>", self._on_locale)
 
         mid = ttk.Frame(self, padding=8)
         mid.pack(fill=tk.BOTH, expand=True)
@@ -50,11 +69,15 @@ class ShellApp(tk.Tk):
         self.listbox.configure(yscrollcommand=scroll.set)
         self.listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.listbox.bind("<<ListboxSelect>>", self._on_select)
+
+        preview = ttk.LabelFrame(self, text=t("shell.instruction_preview"), padding=8)
+        preview.pack(fill=tk.X, padx=8, pady=(0, 4))
+        self.preview_var = tk.StringVar(value="")
+        ttk.Label(preview, textvariable=self.preview_var, wraplength=680).pack(fill=tk.X)
 
         self._items = load_catalog()
-        for item in self._items:
-            self.listbox.insert(tk.END, f"{item['title']}  ({item['id']})")
-        # Prefer sequence_match if present
+        self._refill_list()
         for i, item in enumerate(self._items):
             if item["id"] == "sequence_match":
                 self.listbox.selection_set(i)
@@ -63,38 +86,63 @@ class ShellApp(tk.Tk):
         else:
             if self._items:
                 self.listbox.selection_set(0)
+        self._on_select()
 
         bottom = ttk.Frame(self, padding=8)
         bottom.pack(fill=tk.X)
-        self.status = tk.StringVar(value="Ready")
-        ttk.Button(bottom, text="Play", command=self.on_play).pack(side=tk.LEFT)
+        self.status = tk.StringVar(value=t("shell.ready"))
+        self.play_btn = ttk.Button(bottom, text=t("shell.play"), command=self.on_play)
+        self.play_btn.pack(side=tk.LEFT)
         ttk.Label(bottom, textvariable=self.status).pack(side=tk.LEFT, padx=12)
+
+    def _refill_list(self) -> None:
+        sel = self.listbox.curselection()
+        self.listbox.delete(0, tk.END)
+        for item in self._items:
+            self.listbox.insert(tk.END, f"{item['title']}  ({item['id']})")
+        if sel:
+            self.listbox.selection_set(sel[0])
+
+    def _on_locale(self, _event=None) -> None:
+        set_locale(self.locale_var.get())
+        self.title(t("shell.title"))
+        self.play_btn.configure(text=t("shell.play"))
+        if not self._busy:
+            self.status.set(t("shell.ready"))
+        self._on_select()
+
+    def _on_select(self, _event=None) -> None:
+        sel = self.listbox.curselection()
+        if not sel:
+            self.preview_var.set("")
+            return
+        eid = self._items[sel[0]]["id"]
+        self.preview_var.set(t(instruction_key(eid)))
 
     def on_play(self) -> None:
         if self._busy:
             return
         sel = self.listbox.curselection()
         if not sel:
-            messagebox.showinfo("Logic Forge", "Select an exercise first.")
+            messagebox.showinfo(t("shell.app_name"), t("shell.select_first"))
             return
         item = self._items[sel[0]]
         root = Path(self.root_var.get()).expanduser()
         if not root.is_dir():
-            messagebox.showerror(
-                "Logic Forge",
-                "Set LOGICFORGE_EXERCISES_ROOT to your LogicForge-Exercises clone.",
-            )
+            messagebox.showerror(t("shell.app_name"), t("shell.missing_root"))
             return
         exercise_dir = root / item["id"]
         if not exercise_dir.is_dir():
             messagebox.showerror(
-                "Logic Forge",
-                f"Missing folder: {exercise_dir}",
+                t("shell.app_name"),
+                t("shell.missing_folder", path=str(exercise_dir)),
             )
             return
         self._busy = True
-        self.status.set(f"Playing {item['id']}… (finish the CLI, then return here)")
-        threading.Thread(target=self._run_play, args=(exercise_dir, item["id"]), daemon=True).start()
+        self.status.set(t("shell.playing", id=item["id"]))
+        threading.Thread(
+            target=self._run_play, args=(exercise_dir, item["id"]), daemon=True
+        ).start()
 
     def _run_play(self, exercise_dir: Path, exercise_id: str) -> None:
         try:
@@ -104,39 +152,39 @@ class ShellApp(tk.Tk):
                 check=False,
             )
             code = proc.returncode
-            msg = f"{exercise_id} finished — exit {code}"
+            msg = t("shell.finished", id=exercise_id, code=code)
         except Exception as exc:  # noqa: BLE001
             code = -1
-            msg = f"{exercise_id} failed: {exc}"
+            msg = t("shell.failed", id=exercise_id, error=str(exc))
         self.after(0, lambda: self._done(msg, code))
 
     def _done(self, msg: str, code: int) -> None:
         self._busy = False
         self.status.set(msg)
         if code == 0:
-            messagebox.showinfo("Logic Forge", msg)
+            messagebox.showinfo(t("shell.app_name"), msg)
         else:
-            messagebox.showwarning("Logic Forge", msg)
+            messagebox.showwarning(t("shell.app_name"), msg)
 
 
 def main_cli() -> None:
-    """Headless list + launch (no display required)."""
     import sys
 
     items = load_catalog()
     root = exercises_root()
-    print(f"Logic Forge shell v0.1 — {len(items)} exercises")
+    print(f"{t('shell.title')} — {len(items)} exercises [{get_locale()}]")
     print(f"Cores root: {root or '(unset LOGICFORGE_EXERCISES_ROOT)'}")
     for i, item in enumerate(items, 1):
         print(f"  {i:3d}. {item['id']}")
     if not root:
-        print("Set LOGICFORGE_EXERCISES_ROOT to launch.", file=sys.stderr)
+        print(t("shell.missing_root"), file=sys.stderr)
         raise SystemExit(2)
     choice = input("Number to play (blank=quit): ").strip()
     if not choice:
         return
     idx = int(choice) - 1
     item = items[idx]
+    print(t(instruction_key(item["id"])))
     exercise_dir = root / item["id"]
     print(f"Running make play in {exercise_dir} …")
     raise SystemExit(subprocess.call(["make", "play"], cwd=str(exercise_dir)))
@@ -145,6 +193,11 @@ def main_cli() -> None:
 def main() -> None:
     import sys
 
+    # Optional: --locale de
+    if "--locale" in sys.argv:
+        i = sys.argv.index("--locale")
+        if i + 1 < len(sys.argv):
+            set_locale(sys.argv[i + 1])
     if "--cli" in sys.argv or not os.environ.get("DISPLAY"):
         main_cli()
         return
