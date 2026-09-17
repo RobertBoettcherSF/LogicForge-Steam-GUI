@@ -11,6 +11,9 @@ from tkinter import messagebox, ttk
 
 from logicforge_gui.deck import apply_window
 from logicforge_gui import steamworks as steam
+from logicforge_gui import results as results_store
+from logicforge_gui.menu import filter_catalog, theme_for, theme_names
+from logicforge_gui.paths import exercises_root as paths_exercises_root, results_dir
 from logicforge_gui.i18n import (
     available_locales,
     get_locale,
@@ -24,11 +27,7 @@ CATALOG = ROOT / "data" / "exercises.json"
 
 
 def exercises_root() -> Path | None:
-    raw = os.environ.get("LOGICFORGE_EXERCISES_ROOT", "").strip()
-    if not raw:
-        return None
-    p = Path(raw).expanduser().resolve()
-    return p if p.is_dir() else None
+    return paths_exercises_root()
 
 
 def load_catalog() -> list[dict]:
@@ -70,6 +69,17 @@ class ShellApp(tk.Tk):
         )
         loc.pack(side=tk.LEFT)
         loc.bind("<<ComboboxSelected>>", self._on_locale)
+        ttk.Label(top, text="Theme:").pack(side=tk.LEFT, padx=(8, 0))
+        self.theme_var = tk.StringVar(value="All")
+        theme = ttk.Combobox(
+            top,
+            textvariable=self.theme_var,
+            values=theme_names(),
+            width=14,
+            state="readonly",
+        )
+        theme.pack(side=tk.LEFT)
+        theme.bind("<<ComboboxSelected>>", self._on_theme)
 
         mid = ttk.Frame(self, padding=8)
         mid.pack(fill=tk.BOTH, expand=True)
@@ -102,16 +112,25 @@ class ShellApp(tk.Tk):
         self.status = tk.StringVar(value=t("shell.ready"))
         self.play_btn = ttk.Button(bottom, text=t("shell.play"), command=self.on_play)
         self.play_btn.pack(side=tk.LEFT)
+        ttk.Button(bottom, text="Results", command=self.on_results).pack(
+            side=tk.LEFT, padx=6
+        )
         ttk.Label(bottom, textvariable=self.status).pack(side=tk.LEFT, padx=12)
         ttk.Label(bottom, textvariable=self._steam_var).pack(side=tk.RIGHT)
 
     def _refill_list(self) -> None:
-        sel = self.listbox.curselection()
+        theme = self.theme_var.get() if hasattr(self, "theme_var") else "All"
+        self._items = filter_catalog(self._all_items, theme)
         self.listbox.delete(0, tk.END)
         for item in self._items:
-            self.listbox.insert(tk.END, f"{item['title']}  ({item['id']})")
-        if sel:
-            self.listbox.selection_set(sel[0])
+            label = f"{item['title']}  [{theme_for(item['id'])}]  ({item['id']})"
+            self.listbox.insert(tk.END, label)
+        if self._items:
+            self.listbox.selection_set(0)
+            self._on_select()
+
+    def _on_theme(self, _event=None) -> None:
+        self._refill_list()
 
     def _on_locale(self, _event=None) -> None:
         set_locale(self.locale_var.get())
@@ -128,6 +147,20 @@ class ShellApp(tk.Tk):
             return
         eid = self._items[sel[0]]["id"]
         self.preview_var.set(t(instruction_key(eid)))
+
+    def on_results(self) -> None:
+        rows = results_store.recent(15)
+        if not rows:
+            messagebox.showinfo("Results", f"No sessions yet.\nStore: {results_dir()}")
+            return
+        lines = [
+            f"{r.get('ts', '?')}  {r.get('exercise_id')}  exit={r.get('exit_code')}"
+            for r in rows
+        ]
+        messagebox.showinfo(
+            "Results",
+            f"Store: {results_dir()}\n\n" + "\n".join(lines),
+        )
 
     def _on_close(self) -> None:
         steam.shutdown()
@@ -170,11 +203,16 @@ class ShellApp(tk.Tk):
         except Exception as exc:  # noqa: BLE001
             code = -1
             msg = t("shell.failed", id=exercise_id, error=str(exc))
-        self.after(0, lambda: self._done(msg, code))
+        self.after(0, lambda: self._done(msg, code, exercise_id))
 
-    def _done(self, msg: str, code: int) -> None:
+    def _done(self, msg: str, code: int, exercise_id: str = "") -> None:
         self._busy = False
         self.status.set(msg)
+        if exercise_id:
+            path = results_store.record_session(
+                exercise_id, code, locale=get_locale()
+            )
+            self.status.set(f"{msg} · saved {path.name}")
         if code == 0:
             messagebox.showinfo(t("shell.app_name"), msg)
         else:
