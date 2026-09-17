@@ -9,6 +9,7 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import messagebox, ttk
 
+from logicforge_gui.deck import apply_window
 from logicforge_gui.i18n import (
     available_locales,
     get_locale,
@@ -39,6 +40,7 @@ class ShellApp(tk.Tk):
         super().__init__()
         self.title(t("shell.title"))
         self.geometry("720x520")
+        apply_window(self)
         self._busy = False
 
         top = ttk.Frame(self, padding=8)
