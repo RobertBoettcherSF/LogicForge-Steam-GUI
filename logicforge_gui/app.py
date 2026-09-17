@@ -12,7 +12,7 @@ from tkinter import messagebox, ttk
 from logicforge_gui.deck import apply_window
 from logicforge_gui import steamworks as steam
 from logicforge_gui import results as results_store
-from logicforge_gui.menu import filter_catalog, theme_for, theme_names
+from logicforge_gui.menu import filter_catalog, theme_counts, theme_for, theme_names
 from logicforge_gui.paths import exercises_root as paths_exercises_root, results_dir
 from logicforge_gui.i18n import (
     available_locales,
@@ -71,11 +71,12 @@ class ShellApp(tk.Tk):
         loc.bind("<<ComboboxSelected>>", self._on_locale)
         ttk.Label(top, text="Theme:").pack(side=tk.LEFT, padx=(8, 0))
         self.theme_var = tk.StringVar(value="All")
+        self._theme_labels = self._build_theme_labels()
         theme = ttk.Combobox(
             top,
             textvariable=self.theme_var,
-            values=theme_names(),
-            width=14,
+            values=self._theme_labels,
+            width=22,
             state="readonly",
         )
         theme.pack(side=tk.LEFT)
@@ -121,8 +122,21 @@ class ShellApp(tk.Tk):
         ttk.Label(bottom, textvariable=self.status).pack(side=tk.LEFT, padx=12)
         ttk.Label(bottom, textvariable=self._steam_var).pack(side=tk.RIGHT)
 
+    def _build_theme_labels(self) -> list[str]:
+        counts = theme_counts(getattr(self, "_all_items", []))
+        labels = ["All"]
+        for name in theme_names():
+            if name == "All":
+                continue
+            labels.append(f"{name} ({counts.get(name, 0)})")
+        return labels
+
+    def _selected_theme(self) -> str:
+        raw = self.theme_var.get() if hasattr(self, "theme_var") else "All"
+        return raw.split(" (", 1)[0] if raw else "All"
+
     def _refill_list(self) -> None:
-        theme = self.theme_var.get() if hasattr(self, "theme_var") else "All"
+        theme = self._selected_theme()
         self._items = filter_catalog(self._all_items, theme)
         self.listbox.delete(0, tk.END)
         for item in self._items:
