@@ -49,3 +49,27 @@ def recent(limit: int = 20) -> list[dict[str, Any]]:
         except json.JSONDecodeError:
             continue
     return list(reversed(out))
+
+
+def export_csv(dest: Path | None = None) -> Path:
+    """Export all sessions to CSV; default under results_dir/sessions.csv."""
+    import csv
+
+    rows = list(reversed(recent(10_000)))  # chronological
+    path = dest or (results_dir() / "sessions.csv")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as f:
+        w = csv.DictWriter(
+            f, fieldnames=["ts", "exercise_id", "exit_code", "locale"]
+        )
+        w.writeheader()
+        for r in rows:
+            w.writerow(
+                {
+                    "ts": r.get("ts", ""),
+                    "exercise_id": r.get("exercise_id", ""),
+                    "exit_code": r.get("exit_code", ""),
+                    "locale": r.get("locale", ""),
+                }
+            )
+    return path
