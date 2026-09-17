@@ -13,6 +13,18 @@ python3 -m logicforge_gui --locale de
 
 String tables live in `data/locales/*.json` (shell UI + `exercise_id.instruction` / `.prompt` keys matching the Ada cores).
 
+## Steamworks (optional)
+
+Local runs stay Steam-free. Optional probes:
+
+```bash
+export LOGICFORGE_STEAM=0          # force off
+export LOGICFORGE_STEAM=force      # dry-run "available" without SDK
+export LOGICFORGE_STEAM_APP_ID=480 # or place steam_appid.txt in cwd
+```
+
+When `libsteam_api.so` (or platform equivalent) is on the library path, the shell reports it loaded. Full `SteamAPI_Init` waits on linking the official SDK — not redistributed here.
+
 ## Deck / fullscreen
 
 ```bash
