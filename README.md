@@ -13,6 +13,12 @@ python3 -m logicforge_gui --locale de
 
 String tables live in `data/locales/*.json` (shell UI + `exercise_id.instruction` / `.prompt` keys matching the Ada cores).
 
+## MENU / RESULTS / DATA
+
+- **MENU:** theme filter in the shell (Attention, Memory, Language, Number, Visuospatial, Reasoning).
+- **RESULTS:** each Play session appends a line to `~/.logicforge/results/sessions.jsonl` (override with `LOGICFORGE_RESULTS_DIR` or `data/config.json`).
+- **DATA:** `data/config.json` plus env `LOGICFORGE_EXERCISES_ROOT`, `LOGICFORGE_RESULTS_DIR`, `LOGICFORGE_LOCALES_DIR`, `LOGICFORGE_CONFIG`.
+
 ## Steamworks (optional)
 
 Local runs stay Steam-free. Optional probes:
