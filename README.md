@@ -4,6 +4,15 @@ Local-first GUI shell for **Logic Forge**. Lists headless Ada exercise cores and
 
 Steamworks, Deck fullscreen, and JSON i18n are stubbed for later epics — v0.1 is meant to be tryable on a Linux desktop today.
 
+## Locales (JSON i18n)
+
+```bash
+export LOGICFORGE_LOCALE=en   # or de
+python3 -m logicforge_gui --locale de
+```
+
+String tables live in `data/locales/*.json` (shell UI + `exercise_id.instruction` / `.prompt` keys matching the Ada cores).
+
 ## Requirements
 
 - Python 3.10+ with tkinter (`python3-tk` on Debian/Ubuntu)
