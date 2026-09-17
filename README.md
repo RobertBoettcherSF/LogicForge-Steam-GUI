@@ -13,6 +13,15 @@ python3 -m logicforge_gui --locale de
 
 String tables live in `data/locales/*.json` (shell UI + `exercise_id.instruction` / `.prompt` keys matching the Ada cores).
 
+## Deck / fullscreen
+
+```bash
+export LOGICFORGE_DECK_FULLSCREEN=1   # or SteamDeck=1
+python3 -m logicforge_gui
+```
+
+Escape exits fullscreen. Auto-detects `SteamDeck=1` / gamescope desktop hints.
+
 ## Requirements
 
 - Python 3.10+ with tkinter (`python3-tk` on Debian/Ubuntu)
