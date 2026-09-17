@@ -1,0 +1,1 @@
+# v0.1 uses stdlib only (tkinter). No pip deps required.
