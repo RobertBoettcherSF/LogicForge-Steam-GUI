@@ -115,6 +115,9 @@ class ShellApp(tk.Tk):
         ttk.Button(bottom, text="Results", command=self.on_results).pack(
             side=tk.LEFT, padx=6
         )
+        ttk.Button(bottom, text="Export CSV", command=self.on_export_csv).pack(
+            side=tk.LEFT, padx=6
+        )
         ttk.Label(bottom, textvariable=self.status).pack(side=tk.LEFT, padx=12)
         ttk.Label(bottom, textvariable=self._steam_var).pack(side=tk.RIGHT)
 
@@ -147,6 +150,10 @@ class ShellApp(tk.Tk):
             return
         eid = self._items[sel[0]]["id"]
         self.preview_var.set(t(instruction_key(eid)))
+
+    def on_export_csv(self) -> None:
+        path = results_store.export_csv()
+        messagebox.showinfo("Results", f"Wrote {path}")
 
     def on_results(self) -> None:
         rows = results_store.recent(15)
