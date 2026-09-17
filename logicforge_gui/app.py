@@ -10,6 +10,7 @@ from pathlib import Path
 from tkinter import messagebox, ttk
 
 from logicforge_gui.deck import apply_window
+from logicforge_gui import steamworks as steam
 from logicforge_gui.i18n import (
     available_locales,
     get_locale,
@@ -41,6 +42,12 @@ class ShellApp(tk.Tk):
         self.title(t("shell.title"))
         self.geometry("720x520")
         apply_window(self)
+        steam.init()
+        st = steam.status()
+        self._steam_var = tk.StringVar(
+            value=f"Steam: {'on' if st.available else 'off'} — {st.reason}"
+        )
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
         self._busy = False
 
         top = ttk.Frame(self, padding=8)
@@ -96,6 +103,7 @@ class ShellApp(tk.Tk):
         self.play_btn = ttk.Button(bottom, text=t("shell.play"), command=self.on_play)
         self.play_btn.pack(side=tk.LEFT)
         ttk.Label(bottom, textvariable=self.status).pack(side=tk.LEFT, padx=12)
+        ttk.Label(bottom, textvariable=self._steam_var).pack(side=tk.RIGHT)
 
     def _refill_list(self) -> None:
         sel = self.listbox.curselection()
@@ -172,6 +180,9 @@ class ShellApp(tk.Tk):
 def main_cli() -> None:
     import sys
 
+    steam.init()
+    st = steam.status()
+    print(f"Steam: {st.available} — {st.reason}")
     items = load_catalog()
     root = exercises_root()
     print(f"{t('shell.title')} — {len(items)} exercises [{get_locale()}]")
